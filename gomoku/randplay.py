@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function
 import random
 
 class Randplay:
@@ -5,8 +6,8 @@ class Randplay:
         self.grid = grid
         self.maxrc = len(grid)-1
         self.piece = player
-        self.grid_size = 26
-        self.grid_count = 19
+        self.grid_size = 52
+        self.grid_count = 11
         self.game_over = False
         self.winner = None
     def get_options(self, grid):
@@ -18,10 +19,10 @@ class Randplay:
                     current_pcs.append((r,c))
         #At the beginning of the game, curernt_pcs is empty
         if not current_pcs:
-            return [(self.maxrc/2, self.maxrc/2)]
+            return [(self.maxrc//2, self.maxrc//2)]
         #Reasonable moves should be close to where the current pieces are
         #Think about what these calculations are doing
-        #min(list, key=lambda x: x[0]) picks the element with the min value on the first dimension
+        #Note: min(list, key=lambda x: x[0]) picks the element with the min value on the first dimension
         min_r = max(0, min(current_pcs, key=lambda x: x[0])[0]-1)
         max_r = min(self.maxrc, max(current_pcs, key=lambda x: x[0])[0]+1)
         min_c = max(0, min(current_pcs, key=lambda x: x[1])[1]-1)
@@ -38,46 +39,8 @@ class Randplay:
             self.game_over = True
             self.winner = 'w'
         return options
-    def get_optimal_option(self, grid):
-        # collect all the black pieces
-        current_black_pcs = []
-        for r in range(len(grid)):
-            for c in range(len(grid)):
-                if grid[r][c] == 'b':
-                    current_black_pcs.append((r,c))
-        # at the beginning of the game, curernt_black_pcs is empty
-        if len(current_black_pcs) == 0:
-            return (self.maxrc/2, self.maxrc/2)
-        # collect all the available spots around the black pieces
-        around_black_spots = []
-        for i, j in current_black_pcs:
-            if (j - 1) >= 0 and grid[i][j - 1] == '.':
-                around_black_spots.append((i, j - 1))
-            if (i - 1) >= 0 and (j - 1) >= 0 and grid[i - 1][j - 1] == '.':
-                around_black_spots.append((i - 1, j - 1))
-            if (j + 1) <= self.maxrc and (i - 1) >= 0 and grid[i - 1][j + 1] == '.':
-                around_black_spots.append((i - 1, j + 1))
-            if (j + 1) <= self.maxrc and (i + 1) <= self.maxrc and grid[i + 1][j + 1] == '.':
-                around_black_spots.append((i + 1, j + 1))
-            if (i + 1) <= self.maxrc and (j - 1) >= 0 and grid[i + 1][j - 1] == '.':
-                around_black_spots.append((i + 1, j - 1))
-            if (i - 1) >= 0 and grid[i - 1][j] == '.':
-                around_black_spots.append((i - 1, j))
-            if (j + 1) <= self.maxrc and grid[i][j + 1] == '.':
-                around_black_spots.append((i, j + 1))
-            if (i + 1) <= self.maxrc and grid[i + 1][j] == '.':
-                around_black_spots.append((i + 1, j))
-        if len(around_black_spots) == 0:
-            # In the unlikely event that no one wins before board is filled
-            # Make white win since black moved first
-            self.game_over = True
-            self.winner = 'w'
-        i = random.randint(0, len(around_black_spots)-1)
-        return around_black_spots[i]
     def make_move(self):
-        options = self.get_options(self.grid)
-        m = random.randint(0,len(options)-1)
-        return options[m]
+        return random.choice(self.get_options(self.grid))
     def check_win(self, r, c):
         n_count = self.get_continuous_count(r, c, -1, 0)
         s_count = self.get_continuous_count(r, c, 1, 0)
@@ -116,3 +79,21 @@ class Randplay:
                 break
             i += 1
         return result
+    #Roll out for default policy
+    #'b' player wins, update 'w' player reward value along the path: {'b':0, 'w':1}
+    #'w' player store, update 'b' player reward value along the path: {'b':1, 'w':0}
+    def rollout(self):
+        simReward = {}
+        while not self.game_over:
+            r,c = self.make_move()
+            self.set_piece(r,c)
+            self.check_win(r,c)
+        #assign rewards
+        if self.winner == 'b':
+            simReward['b'] = 0
+            simReward['w'] = 1
+        elif self.winner == 'w':
+            simReward['b'] = 1
+            simReward['w'] = 0
+        # print("Rolling out, winner is ", self.winner)
+        return simReward
